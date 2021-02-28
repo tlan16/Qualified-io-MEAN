@@ -6,7 +6,7 @@ function divisors(integer) {
 
   const divisors = new Set([1, integer]);
   for (let x = 2; x < integer; x++) {
-    if (integer%x === 0) {
+    if (integer % x === 0) {
       divisors.add(x);
     }
   }
