@@ -1,10 +1,16 @@
-//return an array of a number's divisibles
+// return an array of a number's divisible
 function divisors(integer) {
-    const divisorsArray = [];
-    for(let x = 1; x < integer; x++){
-      if(x !== 1 && integer%x === 0){
-        divisorsArray.push(x);
-      }
+  if (integer < 1) {
+    throw new Error('input must be a positive integer');
+  }
+
+  const divisors = new Set([1, integer]);
+  for (let x = 2; x < integer; x++) {
+    if (integer%x === 0) {
+      divisors.add(x);
     }
-    return divisorsArray;
-};
+  }
+  return [...divisors].sort((a, b) => a - b);
+}
+
+module.exports = divisors;
