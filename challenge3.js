@@ -1,6 +1,6 @@
-//Return the minimum number of swaps needed to sort an array in reverse.
+// Return the minimum number of swaps needed to sort an array in reverse.
 function swap(array, i, j) {
-  let temp = array[i];
+  const temp = array[i];
   array[i] = array[j];
   array[j] = temp;
 }
@@ -20,3 +20,5 @@ function minimumSwaps(ratings) {
   }
   return swaps;
 }
+
+module.exports = minimumSwaps;
