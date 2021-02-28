@@ -4,6 +4,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 
+// region: schema
 const userSchema = mongoose.Schema({
   name: String,
   email: String,
@@ -23,95 +24,129 @@ const purchaseSchema = mongoose.Schema({
   album: {type: mongoose.Schema.Types.ObjectId, ref: 'Album'},
 });
 const Purchase = mongoose.model('Purchase', purchaseSchema);
-
+// endregion
 
 app.use(bodyParser.json());
-app.listen(3000);
-
-// TODO: GET /albums
-app.get('/albums', (req, res) => {
-  Album.find()
-      .then((albums) =>{
-        res.status(200).send({data: albums});
-      });
+mongoose.connect('mongodb://localhost:27017', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  user: 'root',
+  pass: 'password',
+}).then(() => {
+  app.listen(3000);
+}).catch((error) => {
+  console.error(error);
+  throw error;
 });
 
-// TODO: GET /albums/:id
-app.get('/albums/:id', (req, res) => {
-  Album.findById(req.params.id)
-      .then((album) => {
-        res.status(200).send({data: album});
-      });
-});
-
-// TODO: POST /albums
-app.post('/albums', (req, res) => {
-  const albumData = {
-    performer: req.body.performer,
-    title: req.body.title,
-    cost: req.body.cost,
-  };
-  Album.create(albumData, (err, album) => {
-    res.status(200).send({data: album});
-  });
-});
-
-// TODO: PUT /albums/:id
-app.put('/albums/:id', (req, res) => {
-  let update;
-  let field;
-  if (req.body.hasOwnProperty('performer')) {
-    Album.findOneAndUpdate({_id: req.params.id}, {$set: {performer: req.body.performer}}, {new: true})
-        .then((album) => {
-          return res.status(200).send({data: album});
-        }).catch((err) => {
-          res.end();
-        });
-  } else if (req.body.hasOwnProperty('title')) {
-    Album.findOneAndUpdate({_id: req.params.id}, {$set: {title: req.body.title}}, {new: true})
-        .then((album) => {
-          return res.status(200).send({data: album});
-        }).catch((err) => {
-          res.end();
-        });
-  } else if (req.body.hasOwnProperty('cost')) {
-    Album.findOneAndUpdate({_id: req.params.id}, {$set: {cost: parseFloat(req.body.cost)}}, {new: true})
-        .then((album) => {
-          return res.status(200).send({data: album});
-        }).catch((err) => {
-          res.end();
-        });
-  } else {
-    return res.end();
+// region: endpoints
+// region: albums
+app.get('/albums', async (req, res) => {
+  try {
+    const albums = await Album.find();
+    res.send({data: albums});
+  } catch (e) {
+    console.error(e);
+    res.send({data: []});
   }
 });
 
-// TODO: DELETE /albums/:id
-app.delete('/albums/:id', (req, res) => {
-  Album.findOneAndRemove({_id: req.params.id})
-      .then((album) => {
-        return res.status(204).end();
-      });
+app.get('/albums/:id', async (req, res) => {
+  try {
+    const album = await Album.findById(req.params.id);
+    if (!album) {
+      res.sendStatus(404);
+    }
+    res.status(200).send({data: album});
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(404);
+  }
 });
 
-// TODO: POST /purchases and populate data from User and Album models.
-app.post('/purchases', (req, res) => {
-  const purchaseData = {
-    user: req.body.user,
-    album: req.body.album,
-  };
-  Purchase.create(purchaseData, (err, purchase) => {
-    res.status(200);
-  }).then((p) => {
-    Purchase.findOne({_id: p._id})
-        .populate({path: 'user', model: User})
-        .populate({path: 'album', model: Album})
-        .exec((err, populatedPurchase) => {
-          if (err) {
-            res.end();
-          } else {
-            res.send({data: populatedPurchase});
-          }
-        });
-  });
+app.post('/albums', async (req, res) => {
+  try {
+    const album = await Album.create(req.body);
+    res.status(201).send({data: album});
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(400);
+  }
 });
+
+app.put('/albums/:id', async (req, res) => {
+  try {
+    const album = await Album.findByIdAndUpdate(req.params.id, {
+      $set: req.body,
+    });
+    if (!album) {
+      res.sendStatus(404);
+    } else {
+      res.send(album);
+    }
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(400);
+  }
+});
+
+app.delete('/albums/:id', async (req, res) => {
+  try {
+    const album = await Album.findByIdAndDelete(req.params.id);
+    if (!album) {
+      res.sendStatus(404);
+    } else {
+      res.sendStatus(204);
+    }
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(404);
+  }
+});
+// endregion
+
+app.post('/users', async (req, res) => {
+  try {
+    const user = await User.create(req.body);
+    res.status(201).send({data: user});
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(400);
+  }
+});
+
+app.post('/purchases', async (req, res) => {
+  try {
+    const user = await User.findById(req.body.user);
+    if (!user) {
+      res.status(404).send({
+        error: {
+          message: `Cannot find user by id ${req.body.user}`,
+        },
+      });
+    }
+    const album = await Album.findById(req.body.album);
+    if (!album) {
+      res.status(404).send({
+        error: {
+          message: `Cannot find album by id ${req.body.album}`,
+        },
+      });
+    }
+    const purchase = await Purchase.create(req.body);
+    if (purchase) {
+      res.status(201).send({
+        _id: purchase.id,
+        __v: purchase.__v,
+        user,
+        album,
+      });
+    } else {
+      res.sendStatus(400);
+    }
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(400);
+  }
+});
+// endregion
