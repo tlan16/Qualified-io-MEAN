@@ -40,9 +40,28 @@ mongoose.connect('mongodb://localhost:27017', {
   throw error;
 });
 
+// region: middlewares
+async function authMiddleware(req, res, next) {
+  const token = req.headers['authorization'] || '';
+  if (!token.length) {
+    res.sendStatus(401);
+  } else {
+    const user = await User.findOne({
+      password: token,
+    });
+    if (!user) {
+      res.sendStatus(401);
+    } else {
+      next();
+    }
+  }
+}
+
+// endregion
+
 // region: endpoints
 // region: albums
-app.get('/albums', async (req, res) => {
+app.get('/albums', authMiddleware, async (req, res) => {
   try {
     const albums = await Album.find();
     res.send({data: albums});
@@ -52,7 +71,7 @@ app.get('/albums', async (req, res) => {
   }
 });
 
-app.get('/albums/:id', async (req, res) => {
+app.get('/albums/:id', authMiddleware, async (req, res) => {
   try {
     const album = await Album.findById(req.params.id);
     if (!album) {
@@ -65,7 +84,7 @@ app.get('/albums/:id', async (req, res) => {
   }
 });
 
-app.post('/albums', async (req, res) => {
+app.post('/albums', authMiddleware, async (req, res) => {
   try {
     const album = await Album.create(req.body);
     res.status(201).send({data: album});
@@ -75,7 +94,7 @@ app.post('/albums', async (req, res) => {
   }
 });
 
-app.put('/albums/:id', async (req, res) => {
+app.put('/albums/:id', authMiddleware, async (req, res) => {
   try {
     const album = await Album.findByIdAndUpdate(req.params.id, {
       $set: req.body,
@@ -91,7 +110,7 @@ app.put('/albums/:id', async (req, res) => {
   }
 });
 
-app.delete('/albums/:id', async (req, res) => {
+app.delete('/albums/:id', authMiddleware, async (req, res) => {
   try {
     const album = await Album.findByIdAndDelete(req.params.id);
     if (!album) {
@@ -106,23 +125,51 @@ app.delete('/albums/:id', async (req, res) => {
 });
 // endregion
 
-app.post('/users', async (req, res) => {
+app.post('/signup', async (req, res) => {
   try {
-    if (!req.body.email || !req.body.password) {
-      res.sendStatus(400);
-    }
     const user = await User.create({
       ...req.body,
       password: crypto.createHash('sha512', req.body.password).digest('base64'),
     });
-    res.status(201).send({data: user});
+    res.status(201).header('authorization', user.password).send({data: user});
   } catch (e) {
     console.error(e);
     res.sendStatus(400);
   }
 });
 
-app.post('/purchases', async (req, res) => {
+app.post('/login', async (req, res) => {
+  try {
+    if (!req.body.email || !req.body.password) {
+      res.sendStatus(401);
+    } else {
+      const hash = crypto
+          .createHash('sha512', req.body.password)
+          .digest('base64');
+      const user = await User.findOne({
+        email: req.body.email || '',
+        password: hash,
+      });
+      if (!user) {
+        res.sendStatus(401);
+      } else {
+        res.header('authorization', user.password).send(user);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    res.sendStatus(401);
+  }
+});
+
+app.post('/logout', (req, res) => {
+  res.status(204);
+  res.removeHeader('authorization');
+  delete req.headers['authorization'];
+  res.end();
+});
+
+app.post('/purchases', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.body.user);
     if (!user) {
