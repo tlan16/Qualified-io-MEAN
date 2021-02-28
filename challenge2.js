@@ -1,31 +1,33 @@
 // Flattens an hierarchical map into a single level
-function extractKeys(currentKey, into, target){
-    for(let i in into){
-      if (into.hasOwnProperty(i)){
-        let newKey = i;
-        let newValue = into[i];
-        
-        if(currentKey.length > 0){
-          newKey = currentKey + '/' + i;
-        }
-        
-        if(typeof newValue === 'object'){
-          if(newValue instanceof Array === true){
-            target[newKey] = newValue;
-          }else if(newValue == null){
-            target[newKey] = null;
-          }else{
-            extractKeys(newKey, newValue, target);
-          }
+function extractKeys(index, value, result) {
+  for (const i in value) {
+    if (value.hasOwnProperty(i)) {
+      let newIndex = i;
+      const newValue = value[i];
+
+      if (index.length > 0) {
+        newIndex = index + '/' + i;
+      }
+
+      if (typeof newValue === 'object') {
+        if (Array.isArray(newValue) === true) {
+          result[newIndex] = newValue;
+        } else if (newValue == null) {
+          result[newIndex] = null;
         } else {
-          target[newKey] = newValue;
+          extractKeys(newIndex, newValue, result);
         }
+      } else {
+        result[newIndex] = newValue;
       }
     }
   }
-  function flattenMap(map) {
-    // Add your code here
-    const newMap = {};
-    extractKeys('', map, newMap);
-    return newMap;
-  }
+}
+
+function flattenMap(map) {
+  const newMap = {};
+  extractKeys('', map, newMap);
+  return newMap;
+}
+
+module.exports = flattenMap;
